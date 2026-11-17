@@ -3,7 +3,7 @@
 -- re-stolen. One job: honest steal + lock state.
 
 local Players = game:GetService("Players")
-local Config = require(script.Parent.Parent.shared.Config)
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 
 local StealService = {}
 

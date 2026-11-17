@@ -5,7 +5,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local Config = require(script.Parent.Parent.shared.Config)
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local WorldBuilder = require(script.WorldBuilder)
 local Economy = require(script.EconomyService)
 local Brainrot = require(script.BrainrotService)

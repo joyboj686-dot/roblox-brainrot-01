@@ -2,7 +2,7 @@
 -- One job: turn the shared layout table into real anchored parts in Workspace.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Config = require(script.Parent.Parent.shared.Config)
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 
 local WorldBuilder = {}
 

@@ -2,7 +2,7 @@
 -- handle buy + place on pads, and sell. One job.
 
 local RunService = game:GetService("RunService")
-local Config = require(script.Parent.Parent.shared.Config)
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 
 local BrainrotService = {}
 BrainrotService.brainrots = {} -- list of { model, def, mutation, pad, owner }

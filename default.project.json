@@ -1,10 +1,15 @@
 {
-  "name": "house-dodge",
+  "name": "brainrot-rush",
   "tree": {
     "$className": "DataModel",
     "Players": {
       "$properties": {
         "CharacterAutoLoads": false
+      }
+    },
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
       }
     },
     "ServerScriptService": {
@@ -28,35 +33,37 @@
         "$properties": {
           "Anchored": true,
           "Color": [
-            0.38823,
-            0.37254,
-            0.38823
+            0.6,
+            0.7,
+            0.5
           ],
           "Locked": true,
           "Position": [
             0,
-            -10,
+            -5,
             0
           ],
           "Size": [
-            512,
-            20,
-            512
-          ]
+            200,
+            2,
+            140
+          ],
+          "Material": "Grass"
         }
       }
     },
     "Lighting": {
       "$properties": {
         "Ambient": [
-          0,
-          0,
-          0
+          0.6,
+          0.7,
+          0.8
         ],
-        "Brightness": 2,
+        "Brightness": 2.2,
         "GlobalShadows": true,
-        "Outlines": false,
-        "Technology": "Voxel"
+        "Outlines": true,
+        "Technology": "Voxel",
+        "ClockTime": 14
       }
     },
     "SoundService": {

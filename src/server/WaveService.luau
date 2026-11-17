@@ -1,7 +1,7 @@
 -- WaveService: THE BRAINROT WAVE. Tracks the timer, warns 10s ahead,
 -- sweeps the map, and takes 25% of coins from anyone outside the safe zone.
 
-local Config = require(script.Parent.Parent.shared.Config)
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 
 local WaveService = {}
 WaveService.events = {} -- { onWarning, onWaveStart, onWaveEnd }

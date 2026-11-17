@@ -2,7 +2,7 @@
 -- One job: own every player's money state and the earnings tick.
 
 local Players = game:GetService("Players")
-local Config = require(script.Parent.Parent.shared.Config)
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 
 local EconomyService = {}
 EconomyService.data = {} -- [player] = { coins, lifetime, rebirths }
