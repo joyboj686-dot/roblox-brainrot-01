@@ -201,7 +201,70 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
--- B toggles the base lock; R restarts.
+-- Feedback: transient status message at the bottom.
+local statusLabel = makeLabel(gui, "Status", UDim2.fromScale(0.5, 0.85), UDim2.fromScale(0.6, 0.06),
+	"", Color3.fromRGB(255, 255, 255), 18)
+statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+statusLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+
+local function say(msg)
+	statusLabel.Text = msg
+	task.delay(3, function()
+		if statusLabel.Text == msg then
+			statusLabel.Text = ""
+		end
+	end)
+end
+
+buyEvent.OnClientEvent:Connect(function(ok, reason)
+	if ok then
+		say("Bought a brainrot!")
+	elseif reason == "NoFreePad" then
+		say("No free pad on your base!")
+	elseif reason == "TooPoor" then
+		say("Not enough coins!")
+	end
+end)
+
+lockEvent.OnClientEvent:Connect(function(ok)
+	if ok then
+		say("Base locked — stealers blocked for 30s!")
+		lockLabel.Text = "Base lock: ACTIVE"
+	else
+		say("Lock on cooldown.")
+	end
+end)
+
+stealEvent.OnClientEvent:Connect(function(ok, reason)
+	if ok then
+		say("You stole a brainrot — carry it home!")
+	elseif reason == "Locked" then
+		say("That base is locked!")
+	elseif reason == "AlreadyCarrying" then
+		say("You are already carrying one!")
+	elseif reason == "NotPlaced" then
+		say("Only steal placed brainrots!")
+	end
+end)
+
+-- Wave events: warning banner and penalty notice.
+local warning = makeLabel(gui, "Warning", UDim2.fromScale(0.5, 0.3), UDim2.fromScale(0.6, 0.1),
+	"", Color3.fromRGB(255, 90, 60), 34)
+warning.AnchorPoint = Vector2.new(0.5, 0.5)
+warning.TextXAlignment = Enum.TextXAlignment.Center
+warning.Visible = false
+
+waveEvent.OnClientEvent:Connect(function(kind, arg)
+	if kind == "warning" then
+		warning.Visible = true
+		warning.Text = "BRAINROT WAVE IN " .. math.ceil(arg) .. "s — GET TO YOUR BASE!"
+	elseif kind == "wave" then
+		say("THE BRAINROT WAVE SWEEPS THE MAP!")
+		warning.Visible = false
+	elseif kind == "penalty" then
+		say("Caught outside your base! Lost $" .. arg)
+	end
+end)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.B then
@@ -215,5 +278,45 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 				root.Position = Config.PLAZA.spawn
 			end
 		end
+	end
+end)
+
+-- ---------------------------------------------------------------------------
+-- Start overlay: the goal + controls. Click anywhere to dismiss.
+-- ---------------------------------------------------------------------------
+local startGui = Instance.new("ScreenGui")
+startGui.Name = "StartOverlay"
+startGui.ResetOnSpawn = false
+startGui.IgnoreGuiInset = true
+startGui.DisplayOrder = 20
+startGui.Parent = player:WaitForChild("PlayerGui")
+
+local backdrop = Instance.new("Frame")
+backdrop.Size = UDim2.fromScale(1, 1)
+backdrop.BackgroundColor3 = Color3.fromRGB(10, 20, 40)
+backdrop.BackgroundTransparency = 0.25
+backdrop.Parent = startGui
+
+local title = makeLabel(backdrop, "Title", UDim2.fromScale(0.5, 0.25), UDim2.fromScale(0.9, 0.15),
+	"BRAINROT RUSH", Color3.fromRGB(255, 220, 60), 54)
+title.AnchorPoint = Vector2.new(0.5, 0.5)
+title.TextXAlignment = Enum.TextXAlignment.Center
+
+local goals = makeLabel(backdrop, "Goals", UDim2.fromScale(0.5, 0.45), UDim2.fromScale(0.9, 0.3),
+	"Catch brainrots off the belt, place them on your base,\nand watch the money roll in!\nWave hits every 90s — stay inside your base.\nSteal rivals, set locks, REBIRTH past $1,000,000!",
+	Color3.fromRGB(230, 240, 255), 20)
+goals.AnchorPoint = Vector2.new(0.5, 0.5)
+goals.TextXAlignment = Enum.TextXAlignment.Center
+goals.TextYAlignment = Enum.TextYAlignment.Center
+
+local controls = makeLabel(backdrop, "Controls", UDim2.fromScale(0.5, 0.78), UDim2.fromScale(0.9, 0.08),
+	"WASD move • SPACE jump • Click to buy • B lock • R restart",
+	Color3.fromRGB(170, 200, 255), 16)
+controls.AnchorPoint = Vector2.new(0.5, 0.5)
+controls.TextXAlignment = Enum.TextXAlignment.Center
+
+backdrop.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		startGui:Destroy()
 	end
 end)
