@@ -93,3 +93,106 @@ Players.PlayerAdded:Connect(function(player)
 	spawnCharacter(player)
 	player:SetAttribute("coins", Config.START_COINS)
 end)
+
+-- STEAL + SELL handlers.
+local sellEvent = makeRemote("SellResult")
+local lockEvent = makeRemote("LockResult")
+
+-- Sell: client tells us the brainrot index; we credit half its cost.
+sellEvent.OnServerEvent:Connect(function(player, index)
+	local entry = Brainrot.brainrots[index]
+	if not entry or not entry.bought or entry.owner ~= player then
+		return
+	end
+	local list = owns(player)
+	for i, br in ipairs(list) do
+		if br == entry then
+			table.remove(list, i)
+			break
+		end
+	end
+	local value = Brainrot.sell(entry)
+	Economy.add(player, value, false)
+	player:SetAttribute("coins", Economy.coins(player))
+	sellEvent:FireClient(player, value)
+end)
+
+-- Lock: set the base lock to block stealing.
+lockEvent.OnServerEvent:Connect(function(player)
+	local ok = Steal.setLock(player)
+	lockEvent:FireClient(player, ok)
+end)
+
+-- The main loop: belt moves, brainrots spawn, money ticks, waves fire.
+local moneyAccum = 0
+
+RunService.Heartbeat:Connect(function(dt)
+	elapsed += dt
+
+	-- Advance every unbought belt brainrot.
+	local speed = Config.BELT_SPEED + Config.BELT_SPEED_GROWTH * elapsed
+	for _, entry in ipairs(Brainrot.brainrots) do
+		if not entry.bought and not Steal.carriedEntry(entry.owner) then
+			Brainrot.advance(entry, speed, dt)
+		end
+	end
+
+	-- Periodically spawn a fresh brainrot onto the belt.
+	if math.random() < dt * 0.5 then
+		local def = Brainrot.rollRoster(elapsed)
+		local mut = Brainrot.rollMutation()
+		Brainrot.spawnBelt(def, mut, Config.PLAZA.belt.waypoints)
+	end
+
+	-- Money tick: every TICK_INTERVAL, add each pad brainrot's $/s.
+	moneyAccum += dt
+	if moneyAccum >= Config.TICK_INTERVAL then
+		moneyAccum -= Config.TICK_INTERVAL
+		for player, list in pairs(owned) do
+			local gain = 0
+			for _, br in ipairs(list) do
+				gain += Economy.effectiveRate(player, br.def.rate, br.mutation.mult)
+			end
+			if gain > 0 then
+				Economy.add(player, gain, true)
+			end
+			player:SetAttribute("coins", Economy.coins(player))
+			player:SetAttribute("rate", gain)
+		end
+	end
+
+	-- Wave step.
+	local players = Players:GetPlayers()
+	local waveOutcome = Wave.step(dt, players, function(player)
+		-- penalty: lose 25% of current coins
+		local coins = Economy.coins(player)
+		local lost = math.floor(coins * Config.WAVE_PENALTY)
+		Economy.add(player, -lost, false)
+		player:SetAttribute("coins", Economy.coins(player))
+		waveEvent:FireClient(player, "penalty", lost)
+	end)
+	if waveOutcome == "warning" then
+		for _, p in ipairs(players) do
+			waveEvent:FireClient(p, "warning", Wave.timer())
+		end
+	elseif waveOutcome == "wave" then
+		for _, p in ipairs(players) do
+			waveEvent:FireClient(p, "wave", Wave.count())
+		end
+	end
+
+	-- Broadcast state to all clients.
+	updateEvent:FireAllClients({
+		coins = 0, -- per-player, set below
+		elapsed = elapsed,
+		waveTimer = Wave.timer(),
+		waveCount = Wave.count(),
+		beltSpeed = speed,
+	})
+end)
+
+-- Clean up carried state on player leave.
+Players.PlayerRemoving:Connect(function(player)
+	Steal.drop(player)
+	owned[player] = nil
+end)
