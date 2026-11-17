@@ -95,4 +95,100 @@ function BrainrotService.buildModel(def, mutation)
 	return model
 end
 
+-- Spawn a brainrot onto the belt at the given waypoint index.
+function BrainrotService.spawnBelt(def, mutation, waypoints)
+	local model = BrainrotService.buildModel(def, mutation)
+	model.Parent = workspace
+	model.PivotTo(CFrame.new(waypoints[1]))
+	local entry = {
+		model = model,
+		def = def,
+		mutation = mutation,
+		pad = nil,
+		owner = nil,
+		wayIndex = 1,
+		t = 0,
+		bought = false,
+	}
+	BrainrotService.brainrots[#BrainrotService.brainrots + 1] = entry
+	return entry
+end
+
+-- Advance one brainrot along the belt loop each step.
+function BrainrotService.advance(entry, speed, dt)
+	local wp = BrainrotService.beltPath
+	if #wp < 2 then
+		return
+	end
+	local a = wp[entry.wayIndex]
+	local b = wp[entry.wayIndex % #wp + 1]
+	entry.t += speed * dt
+	local dist = (b - a).Magnitude
+	while entry.t >= dist do
+		entry.t -= dist
+		entry.wayIndex = entry.wayIndex % #wp + 1
+		a = wp[entry.wayIndex]
+		b = wp[entry.wayIndex % #wp + 1]
+		dist = (b - a).Magnitude
+	end
+	local frac = dist > 0 and entry.t / dist or 0
+	local pos = a:Lerp(b, frac)
+	entry.model:PivotTo(CFrame.new(pos))
+end
+
+-- Find the first free pad position for a player's base.
+function BrainrotService.findFreePad(padPositions, ownedBrainrots)
+	for _, padPos in ipairs(padPositions) do
+		local taken = false
+		for _, br in ipairs(ownedBrainrots) do
+			if br.pad == padPos then
+				taken = true
+				break
+			end
+		end
+		if not taken then
+			return padPos
+		end
+	end
+	return nil
+end
+
+-- Place a bought brainrot onto a pad of the player's base.
+function BrainrotService.placeOnPad(entry, padPos)
+	entry.pad = padPos
+	entry.bought = true
+	entry.model:PivotTo(CFrame.new(padPos + Vector3.new(0, 4, 0)))
+end
+
+-- Buy a brainrot off the belt: move it from belt to a pad. Returns true/false.
+function BrainrotService.buy(entry, player, padPositions, ownedBrainrots, spendFn)
+	if entry.bought then
+		return false
+	end
+	local padPos = BrainrotService.findFreePad(padPositions, ownedBrainrots)
+	if not padPos then
+		return false, "NoFreePad"
+	end
+	if not spendFn(entry.def.cost) then
+		return false, "TooPoor"
+	end
+	entry.owner = player
+	BrainrotService.placeOnPad(entry, padPos)
+	return true
+end
+
+-- Sell a brainrot off a pad; returns the coin value (50% of cost).
+function BrainrotService.sell(entry)
+	entry.model:Destroy()
+	local value = math.floor(entry.def.cost * Config.SELL_RATE)
+	-- remove from list
+	for i, br in ipairs(BrainrotService.brainrots) do
+		if br == entry then
+			table.remove(BrainrotService.brainrots, i)
+			break
+		end
+	end
+	return value
+end
+
 return BrainrotService
