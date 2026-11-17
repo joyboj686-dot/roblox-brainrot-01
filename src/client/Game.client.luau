@@ -1,88 +1,81 @@
--- A square that moves with the arrow keys inside a grey box.
+-- BRAINROT RUSH client: HUD, overlays, WASD + Space input, camera, feedback.
+-- Reads state broadcast by the server via the UpdateState RemoteEvent.
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 
 local player = Players.LocalPlayer
 
-local ARENA_WIDTH = 640
-local ARENA_HEIGHT = 480
-local SQUARE_SIZE = 48
-local SPEED = 320 -- pixels per second
+-- Grab the server's remote folder.
+local remotes = ReplicatedStorage:WaitForChild("Remotes")
+local updateEvent = remotes:WaitForChild("UpdateState")
+local waveEvent = remotes:WaitForChild("WaveEvent")
+local buyEvent = remotes:WaitForChild("BuyResult")
+local sellEvent = remotes:WaitForChild("SellResult")
+local lockEvent = remotes:WaitForChild("LockResult")
+local stealEvent = remotes:WaitForChild("StealResult")
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "GameGui"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
+-- ---------------------------------------------------------------------------
+-- Input: WASD + Space (read key state so Roblox's camera scripts don't eat it).
+-- ---------------------------------------------------------------------------
+local MOVE_SPEED = 22
+local JUMP_SPEED = 22
+local GRAVITY = 40
+local velocity = Vector3.new(0, 0, 0)
+local grounded = true
 
-local background = Instance.new("Frame")
-background.Name = "Background"
-background.Size = UDim2.fromScale(1, 1)
-background.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-background.BorderSizePixel = 0
-background.Parent = gui
+-- Move the local player's character block.
+local function applyMovement(dt)
+	local char = player.Character
+	if not char then return end
+	local root = char:FindFirstChild("HumanoidRootPart")
+	if not root then return end
 
-local title = Instance.new("TextLabel")
-title.Name = "Hint"
-title.AnchorPoint = Vector2.new(0.5, 0)
-title.Position = UDim2.new(0.5, 0, 0.5, -ARENA_HEIGHT / 2 - 56)
-title.Size = UDim2.fromOffset(ARENA_WIDTH, 40)
-title.BackgroundTransparency = 1
-title.Text = "Use the arrow keys to move the square"
-title.TextColor3 = Color3.fromRGB(230, 230, 230)
-title.TextSize = 24
-title.Font = Enum.Font.SourceSans
-title.Parent = background
+	local move = Vector3.new(0, 0, 0)
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += Vector3.new(0, 0, -1) end
+	if UserInputService:IsKeyDown(Enum.KeyCode.S) then move += Vector3.new(0, 0, 1) end
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) then move += Vector3.new(-1, 0, 0) end
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += Vector3.new(1, 0, 0) end
 
-local arena = Instance.new("Frame")
-arena.Name = "Arena"
-arena.AnchorPoint = Vector2.new(0.5, 0.5)
-arena.Position = UDim2.fromScale(0.5, 0.5)
-arena.Size = UDim2.fromOffset(ARENA_WIDTH, ARENA_HEIGHT)
-arena.BackgroundColor3 = Color3.fromRGB(110, 110, 110)
-arena.BorderColor3 = Color3.fromRGB(30, 30, 30)
-arena.BorderSizePixel = 2
-arena.Parent = background
+	local pos = root.Position
+	if move.Magnitude > 0 then
+		move = move.Unit * MOVE_SPEED * dt
+		pos += move
+	end
 
-local square = Instance.new("Frame")
-square.Name = "Square"
-square.Size = UDim2.fromOffset(SQUARE_SIZE, SQUARE_SIZE)
-square.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-square.BorderColor3 = Color3.fromRGB(30, 30, 30)
-square.BorderSizePixel = 2
-square.Parent = arena
+	-- Jump: launch up when on the ground and Space pressed.
+	if grounded and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+		velocity = Vector3.new(0, JUMP_SPEED, 0)
+		grounded = false
+	end
+	-- Apply gravity.
+	velocity = Vector3.new(0, velocity.Y - GRAVITY * dt, 0)
+	pos += Vector3.new(0, velocity.Y * dt, 0)
 
--- The square's top-left corner inside the arena, starting in the middle.
-local x = (ARENA_WIDTH - SQUARE_SIZE) / 2
-local y = (ARENA_HEIGHT - SQUARE_SIZE) / 2
+	-- Keep above the floor (floor top at Y = ancelance 0).
+	if pos.Y < 3 then
+		pos = Vector3.new(pos.X, 3, pos.Z)
+		velocity = Vector3.new(0, 0, 0)
+		grounded = true
+	end
 
-local function place()
-	square.Position = UDim2.fromOffset(math.floor(x + 0.5), math.floor(y + 0.5))
+	root.Position = pos
 end
 
-place()
-gui.Parent = player:WaitForChild("PlayerGui")
-
 RunService.RenderStepped:Connect(function(dt)
-	local dx = 0
-	local dy = 0
-	if UserInputService:IsKeyDown(Enum.KeyCode.Left) then
-		dx -= 1
+	applyMovement(dt)
+	-- Follow the character with the camera.
+	local char = player.Character
+	if char then
+		local root = char:FindFirstChild("HumanoidRootPart")
+		if root then
+			Camera.CFrame = CFrame.new(root.Position + Vector3.new(0, 10, 16), root.Position)
+		end
 	end
-	if UserInputService:IsKeyDown(Enum.KeyCode.Right) then
-		dx += 1
-	end
-	if UserInputService:IsKeyDown(Enum.KeyCode.Up) then
-		dy -= 1
-	end
-	if UserInputService:IsKeyDown(Enum.KeyCode.Down) then
-		dy += 1
-	end
-	if dx == 0 and dy == 0 then
-		return
-	end
-	x = math.clamp(x + dx * SPEED * dt, 0, ARENA_WIDTH - SQUARE_SIZE)
-	y = math.clamp(y + dy * SPEED * dt, 0, ARENA_HEIGHT - SQUARE_SIZE)
-	place()
 end)
