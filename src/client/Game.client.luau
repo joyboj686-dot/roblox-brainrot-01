@@ -186,10 +186,12 @@ local function raycastToThing()
 end
 
 -- The brainrot model parts are clickable. They carry a BrIndex attribute
--- into the server's brainrot list. Click = buy if on the belt, sell if on pad.
+-- into the server's brainrot list. Left-click = buy/sell; right-click = steal.
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
-	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+	local isLeft = input.UserInputType == Enum.UserInputType.MouseButton1
+	local isRight = input.UserInputType == Enum.UserInputType.MouseButton2
+	if not (isLeft or isRight) then return end
 	local result = raycastToThing()
 	if not result then return end
 	local hit = result.Instance
@@ -197,7 +199,11 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if not model then return end
 	local idx = model:GetAttribute("BrIndex")
 	if idx then
-		buyEvent:FireServer(idx)
+		if isRight then
+			stealEvent:FireServer(idx)
+		else
+			buyEvent:FireServer(idx)
+		end
 	end
 end)
 
@@ -278,6 +284,18 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 				root.Position = Config.PLAZA.spawn
 			end
 		end
+	elseif input.KeyCode == Enum.KeyCode.S then
+		-- Sell the brainrot currently being looked at (raycast a placed one).
+		local result = raycastToThing()
+		if result then
+			local model = result.Instance:FindFirstAncestorOfClass("Model")
+			if model then
+				local idx = model:GetAttribute("BrIndex")
+				if idx then
+					sellEvent:FireServer(idx)
+				end
+			end
+		end
 	end
 end)
 
@@ -310,7 +328,7 @@ goals.TextXAlignment = Enum.TextXAlignment.Center
 goals.TextYAlignment = Enum.TextYAlignment.Center
 
 local controls = makeLabel(backdrop, "Controls", UDim2.fromScale(0.5, 0.78), UDim2.fromScale(0.9, 0.08),
-	"WASD move • SPACE jump • Click to buy • B lock • R restart",
+	"WASD move • SPACE jump • Click buy • Right-click steal • S sell • B lock • R restart",
 	Color3.fromRGB(170, 200, 255), 16)
 controls.AnchorPoint = Vector2.new(0.5, 0.5)
 controls.TextXAlignment = Enum.TextXAlignment.Center
