@@ -111,6 +111,7 @@ function BrainrotService.spawnBelt(def, mutation, waypoints)
 		bought = false,
 	}
 	BrainrotService.brainrots[#BrainrotService.brainrots + 1] = entry
+	entry.model:SetAttribute("BrIndex", #BrainrotService.brainrots)
 	return entry
 end
 

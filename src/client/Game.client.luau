@@ -79,3 +79,141 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 end)
+
+-- ---------------------------------------------------------------------------
+-- HUD: coins, $/s, rebirth, wave timer, lock, next-tier hint. Top-left corner.
+-- ---------------------------------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "Hud"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 10
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local function makeLabel(parent, name, pos, size, text, color, fontSize)
+	local l = Instance.new("TextLabel")
+	l.Name = name
+	l.Position = pos
+	l.Size = size
+	l.Text = text
+	l.TextColor3 = color
+	l.TextSize = fontSize
+	l.BackgroundTransparency = 1
+	l.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	l.Font = Enum.Font.GothamBold
+	l.TextXAlignment = Enum.TextXAlignment.Left
+	l.TextStrokeTransparency = 0.4
+	l.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	l.Parent = parent
+	return l
+end
+
+local coinsLabel = makeLabel(gui, "Coins", UDim2.fromScale(0.02, 0.02), UDim2.fromScale(0.3, 0.05),
+	"$0", Color3.fromRGB(255, 220, 60), 26)
+local rateLabel = makeLabel(gui, "Rate", UDim2.fromScale(0.02, 0.075), UDim2.fromScale(0.3, 0.04),
+	"$0/s", Color3.fromRGB(120, 255, 120), 18)
+local rebirthLabel = makeLabel(gui, "Rebirths", UDim2.fromScale(0.02, 0.12), UDim2.fromScale(0.3, 0.04),
+	"Rebirths: 0 (x1)", Color3.fromRGB(150, 180, 255), 16)
+local waveLabel = makeLabel(gui, "Wave", UDim2.fromScale(0.02, 0.165), UDim2.fromScale(0.3, 0.04),
+	"Wave in 90s", Color3.fromRGB(255, 160, 160), 16)
+local lockLabel = makeLabel(gui, "Lock", UDim2.fromScale(0.02, 0.21), UDim2.fromScale(0.3, 0.04),
+	"Base lock: READY (click B)", Color3.fromRGB(200, 200, 220), 14)
+local hintLabel = makeLabel(gui, "Hint", UDim2.fromScale(0.02, 0.255), UDim2.fromScale(0.3, 0.05),
+	"Next: save $30", Color3.fromRGB(255, 255, 255), 14)
+
+-- State: keep the HUD in sync with the server broadcasts.
+local state = {
+	coins = Config.START_COINS,
+	rate = 0,
+	waveTimer = Config.WAVE_INTERVAL,
+	waveCount = 0,
+	elapsed = 0,
+	lockedUntil = 0,
+}
+
+updateEvent.OnClientEvent:Connect(function(data)
+	state.elapsed = data.elapsed
+	state.waveTimer = data.waveTimer
+	state.waveCount = data.waveCount
+	local att = player:GetAttribute("coins")
+	if att then
+		state.coins = att
+	end
+	local attRate = player:GetAttribute("rate")
+	if attRate then
+		state.rate = attRate
+	end
+	-- Update the labels.
+	coinsLabel.Text = "$" .. math.floor(state.coins)
+	rateLabel.Text = "$" .. math.floor(state.rate) .. "/s"
+	local reb = player:GetAttribute("rebirths") or 0
+	local m = Config.REBIRTH_MULT ^ reb
+	rebirthLabel.Text = "Rebirths: " .. tostring(reb) .. " (x" .. m .. ")"
+	waveLabel.Text = "Wave " .. (state.waveCount + 1) .. " in " .. math.ceil(state.waveTimer) .. "s"
+	-- Next tier hint.
+	updateHint()
+end)
+
+-- Figure out the next affordable roster tier for the HUD hint.
+local function updateHint()
+	local nextDef = nil
+	for _, def in ipairs(Config.ROSTER) do
+		if def.cost > state.coins then
+			nextDef = def
+			break
+		end
+	end
+	if nextDef then
+		hintLabel.Text = "Next: " .. nextDef.name .. " — save $" .. nextDef.cost
+	else
+		hintLabel.Text = "All brainrots bought! Next: rebirth"
+	end
+end
+
+-- Click a belt brainrot to buy it, or a placed one to sell it.
+local UserInputService = UserInputService
+local Mouse = nil
+local function raycastToThing()
+	local char = player.Character
+	if not char then return end
+	local root = char:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+	local dir = (Camera.CFrame.LookVector * 60)
+	local params = RaycastParams.new()
+	params.FilterDescendantsInstances = { workspace:FindFirstChild("Base"), workspace:FindFirstChild("Belt"), workspace:FindFirstChild("RivalBase") }
+	local result = workspace:Raycast(root.Position + Vector3.new(0, 3, 0), dir, params)
+	return result
+end
+
+-- The brainrot model parts are clickable. They carry a BrIndex attribute
+-- into the server's brainrot list. Click = buy if on the belt, sell if on pad.
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+	local result = raycastToThing()
+	if not result then return end
+	local hit = result.Instance
+	local model = hit:FindFirstAncestorOfClass("Model")
+	if not model then return end
+	local idx = model:GetAttribute("BrIndex")
+	if idx then
+		buyEvent:FireServer(idx)
+	end
+end)
+
+-- B toggles the base lock; R restarts.
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.B then
+		lockEvent:FireServer()
+	elseif input.KeyCode == Enum.KeyCode.R then
+		-- Restart: respawn the character back at spawn.
+		local char = player.Character
+		if char then
+			local root = char:FindFirstChild("HumanoidRootPart")
+			if root then
+				root.Position = Config.PLAZA.spawn
+			end
+		end
+	end
+end)
