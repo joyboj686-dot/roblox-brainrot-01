@@ -24,6 +24,8 @@ function EconomyService.add(player, amount, countsLifetime)
 	if countsLifetime then
 		d.lifetime += amount
 	end
+	player:SetAttribute("lifetime", d.lifetime)
+	player:SetAttribute("rebirths", d.rebirths)
 	return d.coins
 end
 

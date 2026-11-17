@@ -320,3 +320,47 @@ backdrop.InputBegan:Connect(function(input)
 		startGui:Destroy()
 	end
 end)
+
+-- ---------------------------------------------------------------------------
+-- Rebirth overlay: shows once lifetime earnings pass the threshold.
+-- Press R (already bound above) to restart for a permanent x2 multiplier.
+-- ---------------------------------------------------------------------------
+local rebirthGui = Instance.new("ScreenGui")
+rebirthGui.Name = "RebirthOverlay"
+rebirthGui.ResetOnSpawn = false
+rebirthGui.IgnoreGuiInset = true
+rebirthGui.DisplayOrder = 15
+rebirthGui.Parent = player:WaitForChild("PlayerGui")
+
+local rBackdrop = Instance.new("Frame")
+rBackdrop.Size = UDim2.fromScale(1, 1)
+rBackdrop.BackgroundColor3 = Color3.fromRGB(90, 20, 120)
+rBackdrop.BackgroundTransparency = 0.3
+rBackdrop.Parent = rebirthGui
+
+local rTitle = makeLabel(rBackdrop, "RTitle", UDim2.fromScale(0.5, 0.35), UDim2.fromScale(0.9, 0.14),
+	"REBIRTH READY!", Color3.fromRGB(255, 120, 220), 40)
+rTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+rTitle.TextXAlignment = Enum.TextXAlignment.Center
+
+local rText = makeLabel(rBackdrop, "RText", UDim2.fromScale(0.5, 0.55), UDim2.fromScale(0.9, 0.1),
+	"Lifetime earnings hit $1,000,000!\nPress R to REBIRTH — reset coins for a permanent x2 multiplier!",
+	Color3.fromRGB(255, 240, 255), 18)
+rText.AnchorPoint = Vector2.new(0.5, 0.5)
+rText.TextXAlignment = Enum.TextXAlignment.Center
+
+rebirthGui.Visible = false
+
+-- Watch the lifetime attribute; show the overlay when it crosses the mark.
+local lastLifetime = 0
+RunService.Heartbeat:Connect(function()
+	local lifetime = player:GetAttribute("lifetime") or 0
+	if lastLifetime < Config.REBIRTH_NEED and lifetime >= Config.REBIRTH_NEED then
+		rebirthGui.Visible = true
+	end
+	if player:GetAttribute("rebirths") and player:GetAttribute("rebirths") ~= (player:GetAttribute("preRebirths") or 0) then
+		rebirthGui.Visible = false
+	end
+	player:SetAttribute("preRebirths", player:GetAttribute("rebirths") or 0)
+	lastLifetime = lifetime
+end)
