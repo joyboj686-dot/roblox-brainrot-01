@@ -67,3 +67,29 @@ buyEvent.OnServerEvent:Connect(function(player, index)
 	end
 	buyEvent:FireClient(player, ok, reason)
 end)
+
+-- Spawn a player with a colourful block body at the spawn point.
+local function spawnCharacter(player)
+	local char = Instance.new("Model")
+	char.Name = "Character"
+	local root = Instance.new("Part")
+	root.Name = "HumanoidRootPart"
+	root.Anchored = true
+	root.Size = Vector3.new(2, 2, 2)
+	root.Position = Config.PLAZA.spawn
+	root.Transparency = 1
+	root.Parent = char
+	local head = Instance.new("Part")
+	head.Name = "Head"
+	head.Size = Vector3.new(2, 1.2, 2)
+	head.Color = Color3.fromRGB(255, 220, 120)
+	head.CFrame = root.CFrame * CFrame.new(0, 2, 0)
+	head.Parent = char
+	player.Character = char
+	return char
+end
+
+Players.PlayerAdded:Connect(function(player)
+	spawnCharacter(player)
+	player:SetAttribute("coins", Config.START_COINS)
+end)
