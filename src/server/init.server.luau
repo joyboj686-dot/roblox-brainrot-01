@@ -123,11 +123,63 @@ lockEvent.OnServerEvent:Connect(function(player)
 	lockEvent:FireClient(player, ok)
 end)
 
+-- Steal: try to pick up a rival (or any) brainrot by index.
+stealEvent.OnServerEvent:Connect(function(player, index)
+	local entry = Brainrot.brainrots[index]
+	if not entry then
+		return
+	end
+	-- Can't steal a belt brainrot (unbought) — only placed ones.
+	if not entry.bought then
+		stealEvent:FireClient(player, false, "NotPlaced")
+		return
+	end
+	-- Can't steal from a locked base (owner has lock active).
+	if not Steal.canStealFrom(entry.owner) then
+		stealEvent:FireClient(player, false, "Locked")
+		return
+	end
+	-- Pick up: remove from owner's list, set owner to carrier.
+	local ownerList = owns(entry.owner)
+	for i, br in ipairs(ownerList) do
+		if br == entry then
+			table.remove(ownerList, i)
+			break
+		end
+	end
+	local ok = Steal.pickup(player, entry)
+	stealEvent:FireClient(player, ok, ok and "Carried" or "AlreadyCarrying")
+end)
+
+-- Carry step: keep a carried brainrot glued to the carrier's character.
+local function carryStep(dt)
+	for player, entry in pairs(Steal.carried) do
+		local char = player.Character
+		if char then
+			local root = char:FindFirstChild("HumanoidRootPart")
+			if root then
+				entry.model:PivotTo(root.CFrame * CFrame.new(0, 4, 0))
+				-- If the carrier reaches their own base, drop it onto a pad.
+				local padPositions = Config.PLAZA.base.pads
+				local pad = Brainrot.findFreePad(padPositions, owns(player))
+				local rootPos = root.Position
+				local base = Config.PLAZA.base.position
+				if pad and (rootPos - base).Magnitude < 30 then
+					Brainrot.placeOnPad(entry, pad)
+					Steal.drop(player)
+					owns(player)[#owns(player) + 1] = entry
+				end
+			end
+		end
+	end
+end
+
 -- The main loop: belt moves, brainrots spawn, money ticks, waves fire.
 local moneyAccum = 0
 
 RunService.Heartbeat:Connect(function(dt)
 	elapsed += dt
+	carryStep(dt)
 
 	-- Advance every unbought belt brainrot.
 	local speed = Config.BELT_SPEED + Config.BELT_SPEED_GROWTH * elapsed
