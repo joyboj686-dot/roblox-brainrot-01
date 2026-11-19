@@ -51,6 +51,7 @@ Config.WAVE_INTERVAL = 90 -- seconds between waves
 Config.WAVE_WARNING = 10 -- seconds of warning before a wave sweeps
 Config.WAVE_PENALTY = 0.25 -- lose 25% of coins if caught outside the safe zone
 Config.WAVE_MIN_INTERVAL = 45 -- interval floor as waves get faster
+Config.WAVE_SHRINK = 5 -- seconds trimmed off the interval each wave (used by WaveService)
 
 -- Stealing.
 Config.LOCK_DURATION = 30 -- seconds a base lock lasts once set
