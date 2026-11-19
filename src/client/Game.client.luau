@@ -58,7 +58,7 @@ local function applyMovement(dt)
 	velocity = Vector3.new(0, velocity.Y - GRAVITY * dt, 0)
 	pos += Vector3.new(0, velocity.Y * dt, 0)
 
-	-- Keep above the floor (floor top at Y = ancelance 0).
+	-- Keep above the floor (floor top at Y = 1; keep the character just above).
 	if pos.Y < 3 then
 		pos = Vector3.new(pos.X, 3, pos.Z)
 		velocity = Vector3.new(0, 0, 0)
@@ -171,7 +171,6 @@ local function updateHint()
 end
 
 -- Click a belt brainrot to buy it, or a placed one to sell it.
-local UserInputService = UserInputService
 local Mouse = nil
 local function raycastToThing()
 	local char = player.Character
@@ -271,6 +270,8 @@ waveEvent.OnClientEvent:Connect(function(kind, arg)
 		say("Caught outside your base! Lost $" .. arg)
 	end
 end)
+
+-- Keyboard shortcuts: B lock, R restart, S sell the looked-at brainrot.
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.B then
